@@ -1,15 +1,54 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"greenlight.net/internal/data"
 	"net/http"
 	"time"
 )
 
+// using `Decode`
 func (app *application) createMovieHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintln(w, "create a new movie")
+	var input struct {
+		Title   string   `json:"title"`
+		Year    int32    `json:"year"`
+		Runtime int32    `json:"runtime"`
+		Genres  []string `json:"genres"`
+	}
+
+	err := json.NewDecoder(r.Body).Decode(&input)
+	if err != nil {
+		app.errorResponse(w, r, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	fmt.Fprintf(w, "%+v\n", input)
 }
+
+// using `Unmarshal`
+//func (app *application) createMovieHandler(w http.ResponseWriter, r *http.Request) {
+//	var input struct {
+//		Title   string   `json:"title"`
+//		Year    int32    `json:"year"`
+//		Runtime int32    `json:"runtime"`
+//		Genres  []string `json:"genres"`
+//	}
+//
+//	body, err := io.ReadAll(r.Body)
+//	if err != nil {
+//		app.serverErrorResponse(w, r, err)
+//		return
+//	}
+//
+//	err = json.Unmarshal(body, &input)
+//	if err != nil {
+//		app.errorResponse(w, r, http.StatusBadRequest, err.Error())
+//		return
+//	}
+//
+//	fmt.Fprintf(w, "%+v\n", input)
+//}
 
 func (app *application) showMovieHandler(w http.ResponseWriter, r *http.Request) {
 	id, err := app.readIDParam(r)
