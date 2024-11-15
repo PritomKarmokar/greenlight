@@ -5,12 +5,15 @@ import (
 	"database/sql"
 	"flag"
 	"fmt"
+	"github.com/golang-migrate/migrate/v4"
+	"github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
+
+	_ "github.com/lib/pq"
 	"log"
 	"net/http"
 	"os"
 	"time"
-
-	_ "github.com/lib/pq"
 )
 
 const version = "1.0.0"
@@ -55,6 +58,22 @@ func main() {
 	defer db.Close()
 
 	logger.Printf("database connection pool established")
+
+	migrationDriver, err := postgres.WithInstance(db, &postgres.Config{})
+	if err != nil {
+		logger.Fatal(err)
+	}
+
+	migrator, err := migrate.NewWithDatabaseInstance("file:////home/pritom/Study/greenlight/migrations", "postgres", migrationDriver)
+	if err != nil {
+		logger.Fatal(err)
+	}
+
+	err = migrator.Up()
+	if err != nil && err != migrate.ErrNoChange {
+		logger.Fatal(err, nil)
+	}
+	logger.Printf("database migration complete")
 
 	app := &application{
 		config: cfg,
