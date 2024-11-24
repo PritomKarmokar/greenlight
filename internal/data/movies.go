@@ -1,6 +1,7 @@
 package data
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"github.com/lib/pq"
@@ -56,11 +57,17 @@ func (m MovieModel) Get(id int64) (*Movie, error) {
 	}
 
 	query := `
-			SELECT id, created_at, title, year, runtime, genres, version
+			SELECT pg_sleep(10), id, created_at, title, year, runtime, genres, version
 			FROM movies
 			WHERE id = $1`
+
 	var movie Movie
-	err := m.DB.QueryRow(query, id).Scan(
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+
+	defer cancel()
+	err := m.DB.QueryRowContext(ctx, query, id).Scan(
+		&[]byte{},
 		&movie.ID,
 		&movie.CreatedAt,
 		&movie.Title,
@@ -94,13 +101,13 @@ func (m MovieModel) Update(movie *Movie) error {
 		movie.Runtime,
 		pq.Array(movie.Genres),
 		movie.ID,
+		movie.Version,
 	}
-
 	err := m.DB.QueryRow(query, args...).Scan(&movie.Version)
 	if err != nil {
 		switch {
 		case errors.Is(err, sql.ErrNoRows):
-			return ErrEditConflict
+			return ErrRecordNotFound
 		default:
 			return err
 		}
@@ -113,7 +120,9 @@ func (m MovieModel) Delete(id int64) error {
 		return ErrRecordNotFound
 	}
 
-	query := `DELETE FROM movies WHERE id = $1`
+	query := `
+			DELETE FROM movies
+			WHERE id = $1`
 
 	result, err := m.DB.Exec(query, id)
 	if err != nil {
@@ -124,6 +133,7 @@ func (m MovieModel) Delete(id int64) error {
 	if err != nil {
 		return err
 	}
+
 	if rowsAffected == 0 {
 		return ErrRecordNotFound
 	}
